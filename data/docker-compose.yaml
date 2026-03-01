@@ -1,0 +1,33 @@
+services:
+  tcmkg:
+    image: python:3.12-slim
+    container_name: tcmkg_processor
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ..:/app                              # monta raiz do projeto em /app
+      - ../data/src:/app/data/src:ro         # livros clássicos (somente leitura)
+      - ../data/process:/app/data/process    # saída: CSV e status JSON
+    environment:
+      - LLM_PROVIDER=deepseek
+      - KIMI_BASE_URL=${KIMI_BASE_URL:-https://api.moonshot.cn/v1}
+      - KIMI_API_KEY=${KIMI_API_KEY}
+      - KIMI_MODEL_NAME=${KIMI_MODEL_NAME:-kimi_k25}
+      - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DEEPSEEK_MODEL_NAME=${DEEPSEEK_MODEL_NAME:-deepseek-chat}
+      - API_CALL_DELAY=${API_CALL_DELAY:-1}
+      - RETRY_DELAY=${RETRY_DELAY:-10}
+      - BASE_BOOKS_DIR=${BASE_BOOKS_DIR:-data/src/classicals}
+      - OUTPUT_CSV_FILE=${OUTPUT_CSV_FILE:-graph/tcm_KG.csv}
+      - STATUS_FILE=${STATUS_FILE:-graph/process/processing_status_KG.json}
+      - CHUNK_SIZE_THRESHOLD=${CHUNK_SIZE_THRESHOLD:-8000}
+      - CHUNK_OVERLAP=${CHUNK_OVERLAP:-500}
+      - LLM_MAX_RETRIES=${LLM_MAX_RETRIES:-5}
+    env_file:
+      - ../.env                              # carrega variáveis do .env na raiz do projeto
+    command: >
+      sh -c "pip install --upgrade pip --quiet &&
+             pip install -r requirements.txt --quiet &&
+             python data/TCMKG.py"
+

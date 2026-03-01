@@ -5,25 +5,38 @@ from openai import OpenAI
 import os
 import csv
 import traceback
+import chardet
 from dotenv import load_dotenv
 load_dotenv()
 
+
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "deepseek") ##
+
 KIMI_API_KEY = os.getenv("MOONSHOT_API_KEY", "sk-your-kimi-api-key")
-KIMI_BASE_URL = "https://api.moonshot.cn/v1"
+KIMI_BASE_URL = os.getenv("MOONSHOT_BASE_URL", "https://api.moonshot.cn/v1")
+KIMI_MODEL_NAME = os.getenv("MOONSHOT_MODEL_NAME", "moonshot-v1-32k")
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "sk-your-deepseek-api-key")
-DEEPSEEK_BASE_URL = "https://api.deepseek.com"
+DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
+DEEPSEEK_MODEL_NAME = os.getenv("DEEPSEEK_MODEL_NAME", "deepseek-chat")
 
-CURRENT_API_KEY = KIMI_API_KEY
-CURRENT_BASE_URL = KIMI_BASE_URL
-CURRENT_MODEL_NAME = "moonshot-v1-32k"
 
-BASE_BOOKS_DIR = "data/src/classicals"
-OUTPUT_CSV_FILE = "tcm_KG.csv"
-STATUS_FILE = "processing_status_KG.json"
-CHUNK_SIZE_THRESHOLD = 8000
-CHUNK_OVERLAP = 500
+if (LLM_PROVIDER.lower() == "moonshot"):
+    CURRENT_API_KEY = KIMI_API_KEY
+    CURRENT_BASE_URL = KIMI_BASE_URL
+    CURRENT_MODEL_NAME = KIMI_MODEL_NAME
+else:
+    CURRENT_API_KEY = DEEPSEEK_API_KEY
+    CURRENT_BASE_URL = DEEPSEEK_BASE_URL
+    CURRENT_MODEL_NAME = DEEPSEEK_MODEL_NAME
+
+BASE_BOOKS_DIR = os.getenv("BASE_BOOKS_DIR", "data/src/classicals")
+OUTPUT_CSV_FILE = os.getenv("OUTPUT_CSV_FILE", "data/process/tcm_KG.csv")
+STATUS_FILE = os.getenv("STATUS_FILE", "data/process/processing_status_KG.json")
+CHUNK_SIZE_THRESHOLD = int(os.getenv("CHUNK_SIZE_THRESHOLD", "8000"))
+CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "500"))
 API_CALL_DELAY = int(os.getenv("API_CALL_DELAY", "30"))
 RETRY_DELAY = int(os.getenv("RETRY_DELAY", "15"))
+LLM_MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", "5"))
 
 def get_llm_client():
     global CURRENT_API_KEY
@@ -120,7 +133,7 @@ def create_triple_extraction_prompt_v2(text_chunk, book_name, chapter_name, book
 
 def extract_triples_with_llm_v2(client, text_chunk, book_name, chapter_name, book_id_display, chunk_idx_display):
     system_prompt_content = create_triple_extraction_prompt_v2(text_chunk, book_name, chapter_name, book_id_display, chunk_idx_display)
-    max_retries = 3
+    max_retries = LLM_MAX_RETRIES
     response_content = ""
 
     for attempt in range(max_retries):
@@ -196,8 +209,28 @@ def process_book_file_v2(filepath, book_name, book_id_display, client, status, w
     print(f"======================================================")
 
     try:
-        with open(filepath, 'r', encoding='utf-8') as f:
-            book_content_full = f.read()
+        with open(filepath, 'rb') as f:
+            raw_bytes = f.read()
+        detected = chardet.detect(raw_bytes)
+        encoding = detected.get('encoding') or 'utf-8'
+        confidence = detected.get('confidence', 0)
+        print(f"  Detected encoding: '{encoding}' (confidence: {confidence:.0%})")
+        # Fallback order for common CJK encodings
+        encodings_to_try = [encoding]
+        for fallback in ('utf-8', 'gb18030', 'gb2312', 'gbk', 'big5', 'latin-1'):
+            if fallback.lower() != (encoding or '').lower():
+                encodings_to_try.append(fallback)
+        book_content_full = None
+        for enc in encodings_to_try:
+            try:
+                book_content_full = raw_bytes.decode(enc)
+                if enc != encoding:
+                    print(f"  Note: Fallback encoding '{enc}' used successfully.")
+                break
+            except (UnicodeDecodeError, LookupError):
+                continue
+        if book_content_full is None:
+            raise ValueError(f"Could not decode file with any attempted encoding: {encodings_to_try}")
     except Exception as e:
         print(f"  Error reading file {filepath}: {e}")
         status["processed_files_map"][filepath] = f"error_reading: {e}"
@@ -258,6 +291,7 @@ def process_book_file_v2(filepath, book_name, book_id_display, client, status, w
     for chapter_idx, chapter_data in enumerate(parsed_chapters):
         chapter_name = chapter_data["title"]
         chapter_content_full = chapter_data["content"]
+        actual_start_chunk_this_chapter = 0
 
         if start_processing_chapter_name:
             if chapter_name != start_processing_chapter_name:
