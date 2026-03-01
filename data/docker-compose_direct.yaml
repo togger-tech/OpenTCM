@@ -9,7 +9,7 @@ services:
       - ..:/app                            # monta raiz do projeto em /app
       - ../data/src:/app/data/src:ro          # livros clássicos (somente leitura)
       # - ../graph:/app/graph                   # saída: CSV e status JSON
-      # - ../.dvenv:/app/.dvenv                   # cache dos pacotes pip (volume nomeado, gravável)
+      # - tcmkg_processor_pip_cache:/tmp/packages               # cache dos pacotes pip (volume nomeado, gravável)
     # environment:
     #   - LLM_PROVIDER=deepseek
     #   - KIMI_BASE_URL=${KIMI_BASE_URL:-https://api.moonshot.cn/v1}
@@ -28,11 +28,12 @@ services:
     #   - LLM_MAX_RETRIES=${LLM_MAX_RETRIES:-5}
     environment:
       - PYTHONUNBUFFERED=1
-      # - PYTHONPATH=/tmp/packages              # python encontra pacotes instalados em /tmp/packages
+      - PYTHONPATH=/tmp/packages              # python encontra pacotes instalados em /tmp/packages
     env_file:
       - ../.env                              # carrega variáveis do .env na raiz do projeto
     command: >
-      sh -c "/app/data.sh .dvenv"
+      sh -c "pip install --target=/tmp/packages --no-cache-dir -r /app/requirements.txt --quiet &&
+             python -u data/TCMKG.py"
 
 # volumes:
 #   tcmkg_processor_pip_cache:                                  # volume Docker para pacotes pip (persistido entre runs)

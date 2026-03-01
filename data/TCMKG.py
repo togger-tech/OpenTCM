@@ -10,8 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-LLM_PROVIDER = os.getenv("LLM_PROVIDER", "deepseek") ##
-
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "deepseek")
 KIMI_API_KEY = os.getenv("MOONSHOT_API_KEY", "sk-your-kimi-api-key")
 KIMI_BASE_URL = os.getenv("MOONSHOT_BASE_URL", "https://api.moonshot.cn/v1")
 KIMI_MODEL_NAME = os.getenv("MOONSHOT_MODEL_NAME", "moonshot-v1-32k")
@@ -28,6 +27,12 @@ else:
     CURRENT_API_KEY = DEEPSEEK_API_KEY
     CURRENT_BASE_URL = DEEPSEEK_BASE_URL
     CURRENT_MODEL_NAME = DEEPSEEK_MODEL_NAME
+
+print(f"STARTING GRAPH CREATION")
+print(f"LLM_PROVIDER: {LLM_PROVIDER}")
+print(f"BASE_URL: {CURRENT_BASE_URL}")
+print(f"MODEL_NAME: {CURRENT_MODEL_NAME}")
+print(f"API_KEY: {CURRENT_API_KEY[:3] + '...' + CURRENT_API_KEY[-2:] if CURRENT_API_KEY else 'Not set'}")
 
 BASE_BOOKS_DIR = os.getenv("BASE_BOOKS_DIR", "data/src/classicals")
 OUTPUT_CSV_FILE = os.getenv("OUTPUT_CSV_FILE", "data/process/tcm_KG.csv")
@@ -311,7 +316,7 @@ def process_book_file_v2(filepath, book_name, book_id_display, client, status, w
             if chapter_name == start_processing_chapter_name:
                 actual_start_chunk_this_chapter = start_chunk_idx_for_chapter
 
-        print(f"    Processing Chapter {chapter_idx + 1}/{total_chapters_in_book}: '{chapter_name}'")
+        print(f"    Processing {book_name} Chapter {chapter_idx + 1}/{total_chapters_in_book}: '{chapter_name}'")
         status["current_file_path"] = filepath
         status["current_chapter_name_being_processed"] = chapter_name
 
@@ -387,6 +392,10 @@ def main():
     output_dir = os.path.dirname(OUTPUT_CSV_FILE)
     if output_dir and not os.path.exists(output_dir):
         os.makedirs(output_dir)
+
+    output_stats_dir = os.path.dirname(STATUS_FILE)
+    if output_stats_dir and not os.path.exists(output_stats_dir):
+        os.makedirs(output_stats_dir)
 
     book_id_counter = 0
     processed_in_this_run_count = 0

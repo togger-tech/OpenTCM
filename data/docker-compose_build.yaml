@@ -1,15 +1,19 @@
 services:
   tcmkg:
-    image: python:3.12-slim
+    build:
+      context: ..                             # raiz do projeto (onde está o requirements.txt)
+      dockerfile: data/Dockerfile
+      args:
+        APP_UID: "${UID:-1000}"
+        APP_GID: "${GID:-1000}"
     container_name: tcmkg_processor
     restart: unless-stopped
     user: "${UID:-1000}:${GID:-1000}"        # roda com o mesmo UID/GID do usuário local
     working_dir: /app
     volumes:
-      - ..:/app                            # monta raiz do projeto em /app
+      - ..:/app:ro                            # monta raiz do projeto em /app
       - ../data/src:/app/data/src:ro          # livros clássicos (somente leitura)
-      # - ../graph:/app/graph                   # saída: CSV e status JSON
-      # - ../.dvenv:/app/.dvenv                   # cache dos pacotes pip (volume nomeado, gravável)
+      - ../graph:/app/graph                   # saída: CSV e status JSON
     # environment:
     #   - LLM_PROVIDER=deepseek
     #   - KIMI_BASE_URL=${KIMI_BASE_URL:-https://api.moonshot.cn/v1}
@@ -28,12 +32,6 @@ services:
     #   - LLM_MAX_RETRIES=${LLM_MAX_RETRIES:-5}
     environment:
       - PYTHONUNBUFFERED=1
-      # - PYTHONPATH=/tmp/packages              # python encontra pacotes instalados em /tmp/packages
     env_file:
       - ../.env                              # carrega variáveis do .env na raiz do projeto
-    command: >
-      sh -c "/app/data.sh .dvenv"
-
-# volumes:
-#   tcmkg_processor_pip_cache:                                  # volume Docker para pacotes pip (persistido entre runs)
 
