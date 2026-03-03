@@ -32,7 +32,7 @@ services:
     env_file:
       - ../.env                              # carrega variáveis do .env na raiz do projeto
     command: >
-      sh -c "/app/data.sh .dvenv"
+      sh -c "/app/data/run.sh .dvenv"
 
 # volumes:
 #   tcmkg_processor_pip_cache:                                  # volume Docker para pacotes pip (persistido entre runs)

@@ -4,7 +4,7 @@ VENV_DIR=${1:-.venv}
 
 #envPath="$(sourcePath=`readlink -f ${BASH_SOURCE[0]}` && echo "${sourcePath%/*}")"
 scriptPath="$(sourcePath=`readlink -f "$0"` && echo "${sourcePath%/*}")"
-basePath="$(cd $scriptPath && pwd)"
+basePath="$(cd $scriptPath/.. && pwd)"
 
 cd $basePath
 
